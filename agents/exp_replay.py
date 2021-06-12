@@ -3,6 +3,7 @@ from importlib import import_module
 import numpy as np
 import torch
 
+from dataloaders.sampler import InfiniteRandomSampler
 from dataloaders.wrapper import Storage
 from .default import NormalNN
 from .regularization import SI, L2, EWC, MAS
@@ -30,7 +31,7 @@ class Naive_Rehearsal(NormalNN):
             dataset = torch.utils.data.ConcatDataset(dataset_list)
             new_train_loader = torch.utils.data.DataLoader(dataset,
                                                            batch_size=train_loader.batch_size,
-                                                           shuffle=True,
+                                                           sampler=InfiniteRandomSampler(dataset, shuffle=True),
                                                            num_workers=train_loader.num_workers)
 
         # 2.Update model as normal
