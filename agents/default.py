@@ -160,6 +160,7 @@ class NormalNN(nn.Module):
         return loss.detach(), out
 
     def learn_batch(self, train_loader, num_batches, val_loader=None):
+        """this is the learning loop within a dataloader"""
         if self.reset_optimizer:  # Reset optimizer before learning each task
             self.log('Optimizer is reset!')
             self.init_optimizer()
@@ -201,7 +202,7 @@ class NormalNN(nn.Module):
                 batch_time.update(batch_timer.toc())  # measure elapsed time
                 data_timer.toc()
 
-                if ((self.config['print_freq'] > 0) and (i % self.config['print_freq'] == 0)) or (i + 1) ==num_batches:
+                if ((self.config['print_freq'] > 0) and (i % self.config['print_freq'] == 0)) or (i + 1) == num_batches:
                     self.log('[{0}/{1}]\t'
                              '{batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                              '{data_time.val:.4f} ({data_time.avg:.4f})\t'

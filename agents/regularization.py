@@ -1,7 +1,7 @@
 import torch
 import random
 from .default import NormalNN
-
+from tqdm import tqdm
 
 class L2(NormalNN):
     """
@@ -113,7 +113,7 @@ class EWC(L2):
         self.eval()
 
         # Accumulate the square of gradients
-        for i, (input, target, task) in enumerate(dataloader):
+        for i, (input, target, task) in tqdm(zip(range(len(dataloader)), dataloader)):
             if self.gpu:
                 input = input.cuda()
                 target = target.cuda()
@@ -294,7 +294,7 @@ class MAS(L2):
         self.eval()
 
         # Accumulate the gradients of L2 loss on the outputs
-        for i, (input, target, task) in enumerate(dataloader):
+        for i, (input, target, task) in zip(range(len(dataloader)),dataloader):
             if self.gpu:
                 input = input.cuda()
                 target = target.cuda()
