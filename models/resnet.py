@@ -1,7 +1,5 @@
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from torch.nn import init
 
 
 def conv3x3(in_planes, out_planes, stride=1):
@@ -16,13 +14,13 @@ class PreActBlock(nn.Module):
         super(PreActBlock, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = conv3x3(in_planes, planes, stride)
-        self.drop = nn.Dropout(p=droprate) if droprate>0 else None
+        self.drop = nn.Dropout(p=droprate) if droprate > 0 else None
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = conv3x3(planes, planes)
 
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False)
             )
 
     def forward(self, x):
@@ -47,11 +45,11 @@ class PreActBottleneck(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, self.expansion*planes, kernel_size=1, bias=False)
+        self.conv3 = nn.Conv2d(planes, self.expansion * planes, kernel_size=1, bias=False)
 
-        if stride != 1 or in_planes != self.expansion*planes:
+        if stride != 1 or in_planes != self.expansion * planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False)
             )
 
     def forward(self, x):
@@ -68,7 +66,7 @@ class PreActResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10, in_channels=3):
         super(PreActResNet, self).__init__()
         self.in_planes = 64
-        last_planes = 512*block.expansion
+        last_planes = 512 * block.expansion
 
         self.conv1 = conv3x3(in_channels, 64)
         self.stage1 = self._make_layer(block, 64, num_blocks[0], stride=1)
@@ -79,7 +77,7 @@ class PreActResNet(nn.Module):
         self.last = nn.Linear(last_planes, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride))
@@ -110,7 +108,7 @@ class PreActResNet_cifar(nn.Module):
     def __init__(self, block, num_blocks, filters, num_classes=10, droprate=0):
         super(PreActResNet_cifar, self).__init__()
         self.in_planes = 16
-        last_planes = filters[2]*block.expansion
+        last_planes = filters[2] * block.expansion
 
         self.conv1 = conv3x3(3, self.in_planes)
         self.stage1 = self._make_layer(block, filters[0], num_blocks[0], stride=1, droprate=droprate)
@@ -134,7 +132,7 @@ class PreActResNet_cifar(nn.Module):
         """
 
     def _make_layer(self, block, planes, num_blocks, stride, droprate):
-        strides = [stride] + [1]*(num_blocks-1)
+        strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             layers.append(block(self.in_planes, planes, stride, droprate))
@@ -155,7 +153,7 @@ class PreActResNet_cifar(nn.Module):
     def forward(self, x):
         out = self.features(x)
         out = F.relu(self.bn_last(out))
-        out = F.avg_pool2d(out, 8)
+        out = F.adaptive_avg_pool2d(out, (1, 1))
         out = self.logits(out.view(out.size(0), -1))
         return out
 
@@ -163,48 +161,62 @@ class PreActResNet_cifar(nn.Module):
 # ResNet for Cifar10/100 or the dataset with image size 32x32
 
 def ResNet20_cifar(out_dim=10):
-    return PreActResNet_cifar(PreActBlock, [3 , 3 , 3 ], [16, 32, 64], num_classes=out_dim)
+    return PreActResNet_cifar(PreActBlock, [3, 3, 3], [16, 32, 64], num_classes=out_dim)
+
 
 def ResNet56_cifar(out_dim=10):
-    return PreActResNet_cifar(PreActBlock, [9 , 9 , 9 ], [16, 32, 64], num_classes=out_dim)
+    return PreActResNet_cifar(PreActBlock, [9, 9, 9], [16, 32, 64], num_classes=out_dim)
+
 
 def ResNet110_cifar(out_dim=10):
     return PreActResNet_cifar(PreActBlock, [18, 18, 18], [16, 32, 64], num_classes=out_dim)
 
+
 def ResNet29_cifar(out_dim=10):
-    return PreActResNet_cifar(PreActBottleneck, [3 , 3 , 3 ], [16, 32, 64], num_classes=out_dim)
+    return PreActResNet_cifar(PreActBottleneck, [3, 3, 3], [16, 32, 64], num_classes=out_dim)
+
 
 def ResNet164_cifar(out_dim=10):
     return PreActResNet_cifar(PreActBottleneck, [18, 18, 18], [16, 32, 64], num_classes=out_dim)
 
+
 def WideResNet_28_2_cifar(out_dim=10):
     return PreActResNet_cifar(PreActBlock, [4, 4, 4], [32, 64, 128], num_classes=out_dim)
+
 
 def WideResNet_28_2_drop_cifar(out_dim=10):
     return PreActResNet_cifar(PreActBlock, [4, 4, 4], [32, 64, 128], num_classes=out_dim, droprate=0.3)
 
+
 def WideResNet_28_10_cifar(out_dim=10):
     return PreActResNet_cifar(PreActBlock, [4, 4, 4], [160, 320, 640], num_classes=out_dim)
+
 
 # ResNet for general purpose. Ex:ImageNet
 
 def ResNet10(out_dim=10):
-    return PreActResNet(PreActBlock, [1,1,1,1], num_classes=out_dim)
+    return PreActResNet(PreActBlock, [1, 1, 1, 1], num_classes=out_dim)
+
 
 def ResNet18S(out_dim=10):
-    return PreActResNet(PreActBlock, [2,2,2,2], num_classes=out_dim, in_channels=1)
+    return PreActResNet(PreActBlock, [2, 2, 2, 2], num_classes=out_dim, in_channels=1)
+
 
 def ResNet18(out_dim=10):
-    return PreActResNet(PreActBlock, [2,2,2,2], num_classes=out_dim)
+    return PreActResNet(PreActBlock, [2, 2, 2, 2], num_classes=out_dim)
+
 
 def ResNet34(out_dim=10):
-    return PreActResNet(PreActBlock, [3,4,6,3], num_classes=out_dim)
+    return PreActResNet(PreActBlock, [3, 4, 6, 3], num_classes=out_dim)
+
 
 def ResNet50(out_dim=10):
-    return PreActResNet(PreActBottleneck, [3,4,6,3], num_classes=out_dim)
+    return PreActResNet(PreActBottleneck, [3, 4, 6, 3], num_classes=out_dim)
+
 
 def ResNet101(out_dim=10):
-    return PreActResNet(PreActBottleneck, [3,4,23,3], num_classes=out_dim)
+    return PreActResNet(PreActBottleneck, [3, 4, 23, 3], num_classes=out_dim)
+
 
 def ResNet152(out_dim=10):
-    return PreActResNet(PreActBottleneck, [3,8,36,3], num_classes=out_dim)
+    return PreActResNet(PreActBottleneck, [3, 8, 36, 3], num_classes=out_dim)

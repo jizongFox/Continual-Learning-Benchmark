@@ -1,9 +1,11 @@
-import torch
-import numpy as np
 from importlib import import_module
+
+import numpy as np
+import torch
+
+from dataloaders.wrapper import Storage
 from .default import NormalNN
 from .regularization import SI, L2, EWC, MAS
-from dataloaders.wrapper import Storage
 
 
 class Naive_Rehearsal(NormalNN):
@@ -15,30 +17,30 @@ class Naive_Rehearsal(NormalNN):
         self.task_memory = {}
         self.skip_memory_concatenation = False
 
-    def learn_batch(self, train_loader, val_loader=None):
+    def learn_batch(self, train_loader, num_batches, val_loader=None):
         # 1.Combine training set
         if self.skip_memory_concatenation:
             new_train_loader = train_loader
-        else: # default
+        else:  # default
             dataset_list = []
             for storage in self.task_memory.values():
                 dataset_list.append(storage)
-            dataset_list *= max(len(train_loader.dataset)//self.memory_size,1)  # Let old data: new data = 1:1
+            dataset_list *= max(len(train_loader.dataset) // self.memory_size, 1)  # Let old data: new data = 1:1
             dataset_list.append(train_loader.dataset)
             dataset = torch.utils.data.ConcatDataset(dataset_list)
             new_train_loader = torch.utils.data.DataLoader(dataset,
-                                                        batch_size=train_loader.batch_size,
-                                                        shuffle=True,
-                                                        num_workers=train_loader.num_workers)
+                                                           batch_size=train_loader.batch_size,
+                                                           shuffle=True,
+                                                           num_workers=train_loader.num_workers)
 
         # 2.Update model as normal
-        super(Naive_Rehearsal, self).learn_batch(new_train_loader, val_loader)
+        super(Naive_Rehearsal, self).learn_batch(new_train_loader, num_batches, val_loader)
 
         # 3.Randomly decide the images to stay in the memory
         self.task_count += 1
         # (a) Decide the number of samples for being saved
         num_sample_per_task = self.memory_size // self.task_count
-        num_sample_per_task = min(len(train_loader.dataset),num_sample_per_task)
+        num_sample_per_task = min(len(train_loader.dataset), num_sample_per_task)
         # (b) Reduce current exemplar set to reserve the space for the new dataset
         for storage in self.task_memory.values():
             storage.reduce(num_sample_per_task)
@@ -92,7 +94,7 @@ class GEM(Naive_Rehearsal):
 
     def grad_to_vector(self):
         vec = []
-        for n,p in self.params.items():
+        for n, p in self.params.items():
             if p.grad is not None:
                 vec.append(p.grad.view(-1))
             else:
@@ -129,7 +131,7 @@ class GEM(Naive_Rehearsal):
         memories_np = memories.cpu().contiguous().double().numpy()
         gradient_np = gradient.cpu().contiguous().view(-1).double().numpy()
         t = memories_np.shape[0]
-        #print(memories_np.shape, gradient_np.shape)
+        # print(memories_np.shape, gradient_np.shape)
         P = np.dot(memories_np, memories_np.transpose())
         P = 0.5 * (P + P.transpose())
         q = np.dot(memories_np, gradient_np) * -1
@@ -143,10 +145,10 @@ class GEM(Naive_Rehearsal):
             new_grad = new_grad.cuda()
         return new_grad
 
-    def learn_batch(self, train_loader, val_loader=None):
+    def learn_batch(self, train_loader, num_batches, val_loader=None):
 
         # Update model as normal
-        super(GEM, self).learn_batch(train_loader, val_loader)
+        super(GEM, self).learn_batch(train_loader, num_batches, val_loader)
 
         # Cache the data for faster processing
         for t, mem in self.task_memory.items():
@@ -155,18 +157,18 @@ class GEM(Naive_Rehearsal):
                                                      batch_size=len(mem),
                                                      shuffle=False,
                                                      num_workers=2)
-            assert len(mem_loader)==1,'The length of mem_loader should be 1'
+            assert len(mem_loader) == 1, 'The length of mem_loader should be 1'
             for i, (mem_input, mem_target, mem_task) in enumerate(mem_loader):
                 if self.gpu:
                     mem_input = mem_input.cuda()
                     mem_target = mem_target.cuda()
-            self.task_mem_cache[t] = {'data':mem_input,'target':mem_target,'task':mem_task}
+            self.task_mem_cache[t] = {'data': mem_input, 'target': mem_target, 'task': mem_task}
 
     def update_model(self, inputs, targets, tasks):
 
         # compute gradient on previous tasks
         if self.task_count > 0:
-            for t,mem in self.task_memory.items():
+            for t, mem in self.task_memory.items():
                 self.zero_grad()
                 # feed the data from memory and collect the gradients
                 mem_out = self.forward(self.task_mem_cache[t]['data'])

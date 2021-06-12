@@ -28,12 +28,12 @@ class L2(NormalNN):
             importance[n] = p.clone().detach().fill_(1)  # Identity
         return importance
 
-    def learn_batch(self, train_loader, val_loader=None):
+    def learn_batch(self, train_loader, num_batches, val_loader=None):
 
         self.log('#reg_term:', len(self.regularization_terms))
 
         # 1.Learn the parameters for current task
-        super(L2, self).learn_batch(train_loader, val_loader)
+        super(L2, self).learn_batch(train_loader, num_batches, val_loader)
 
         # 2.Backup the weight of current task
         task_param = {}

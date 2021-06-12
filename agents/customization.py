@@ -1,8 +1,10 @@
 import torch
-from .default import NormalNN
-from .regularization import SI, EWC, EWC_online
-from .exp_replay import Naive_Rehearsal, GEM
+
 from modules.criterions import BCEauto
+from .default import NormalNN
+from .exp_replay import Naive_Rehearsal, GEM
+from .regularization import SI, EWC, EWC_online
+
 
 def init_zero_weights(m):
     with torch.no_grad():
