@@ -115,7 +115,9 @@ def CIFAR100(dataroot, train_aug=False):
 
 
 def HaxioDataset(dataroot, train_aug=False):
-    sorted_classes = ["Good", "Damage", "Cap", "Hair", "Black"]
+    # sorted_classes = ["Good", "Damage", "Cap", "Hair", "Black"]
+    sorted_classes = ["Good", "Aesthetic", "Empty", "Hair", "NoCap", "Particle", "Unfilled"]
+
     val_transform = transforms.Compose([
         DownSample(5),
         transforms.ToTensor(),
