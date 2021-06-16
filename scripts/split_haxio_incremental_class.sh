@@ -1,7 +1,7 @@
 set -e
 GPUID=$1
 OUTDIR=outputs/split_HaxioDataset_incremental_class
-REPEAT=3
+REPEAT=1
 dataroot=data/medxl_v2
 
 mkdir -p $OUTDIR

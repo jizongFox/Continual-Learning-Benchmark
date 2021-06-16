@@ -66,15 +66,16 @@ class Naive_Rehearsal_per_task(NormalNN):
             previous_data_size = 0
             cur_dataset_size = len(train_loader.dataset)
         else:  # default
-            dataset_list = []
+            previous_dataset_list = []
             for storage in self.task_memory.values():
-                dataset_list.append(storage)
-            previous_data_size = sum([len(x) for x in dataset_list])
+                previous_dataset_list.append(storage)
+            previous_data_size = sum([len(x) for x in previous_dataset_list])
             if previous_data_size > 0:
-                dataset_list *= max(len(train_loader.dataset) // previous_data_size, 1)  # Let old data: new data = 1:1
-            dataset_list.append(train_loader.dataset)
+                previous_dataset_list *= max(len(train_loader.dataset) // previous_data_size,
+                                             1)  # Let old data: new data = 1:1
+                previous_data_size *= max(len(train_loader.dataset) // previous_data_size, 1)
             cur_dataset_size = len(train_loader.dataset)
-            dataset = torch.utils.data.ConcatDataset(dataset_list)
+            dataset = torch.utils.data.ConcatDataset([*previous_dataset_list, train_loader.dataset])
             new_train_loader = torch.utils.data.DataLoader(dataset,
                                                            batch_size=train_loader.batch_size,
                                                            sampler=InfiniteRandomSampler(dataset, shuffle=True),
