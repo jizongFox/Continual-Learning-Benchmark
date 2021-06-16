@@ -1,11 +1,13 @@
 import time
+
 import torch
+
 
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     with torch.no_grad():
         maxk = max(topk)
-        batch_size = target.size(0)
+        batch_size = target.shape[0]
 
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
@@ -14,9 +16,9 @@ def accuracy(output, target, topk=(1,)):
         res = []
         for k in topk:
             correct_k = correct[:k].view(-1).float().sum().item()
-            res.append(correct_k*100.0 / batch_size)
+            res.append(correct_k * 100.0 / batch_size)
 
-        if len(res)==1:
+        if len(res) == 1:
             return res[0]
         else:
             return res

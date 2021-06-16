@@ -63,6 +63,8 @@ class Naive_Rehearsal_per_task(NormalNN):
         # 1.Combine training set
         if self.skip_memory_concatenation:
             new_train_loader = train_loader
+            previous_data_size = 0
+            cur_dataset_size = len(train_loader.dataset)
         else:  # default
             dataset_list = []
             for storage in self.task_memory.values():
@@ -71,6 +73,7 @@ class Naive_Rehearsal_per_task(NormalNN):
             if previous_data_size > 0:
                 dataset_list *= max(len(train_loader.dataset) // previous_data_size, 1)  # Let old data: new data = 1:1
             dataset_list.append(train_loader.dataset)
+            cur_dataset_size = len(train_loader.dataset)
             dataset = torch.utils.data.ConcatDataset(dataset_list)
             new_train_loader = torch.utils.data.DataLoader(dataset,
                                                            batch_size=train_loader.batch_size,
@@ -78,7 +81,10 @@ class Naive_Rehearsal_per_task(NormalNN):
                                                            num_workers=train_loader.num_workers)
 
         # 2.Update model as normal
-        super(Naive_Rehearsal_per_task, self).learn_batch(new_train_loader, num_batches, val_loader)
+        super(Naive_Rehearsal_per_task, self).learn_batch(
+            new_train_loader,
+            int((previous_data_size + cur_dataset_size) / cur_dataset_size * num_batches),
+            val_loader)
 
         # 3.Randomly decide the images to stay in the memory
         self.task_count += 1

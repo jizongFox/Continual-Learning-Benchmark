@@ -1,7 +1,10 @@
-import torch
 import random
-from .default import NormalNN
+
+import torch
 from tqdm import tqdm
+
+from .default import NormalNN
+
 
 class L2(NormalNN):
     """
@@ -13,13 +16,14 @@ class L2(NormalNN):
         url={https://arxiv.org/abs/1612.00796}
     }
     """
+
     def __init__(self, agent_config):
         super(L2, self).__init__(agent_config)
         self.params = {n: p for n, p in self.model.named_parameters() if p.requires_grad}  # For convenience
         self.regularization_terms = {}
         self.task_count = 0
         self.online_reg = True  # True: There will be only one importance matrix and previous model parameters
-                                # False: Each task has its own importance matrix and model parameters
+        # False: Each task has its own importance matrix and model parameters
 
     def calculate_importance(self, dataloader):
         # Use an identity importance so it is an L2 regularization.
@@ -45,20 +49,20 @@ class L2(NormalNN):
 
         # Save the weight and importance of weights of current task
         self.task_count += 1
-        if self.online_reg and len(self.regularization_terms)>0:
+        if self.online_reg and len(self.regularization_terms) > 0:
             # Always use only one slot in self.regularization_terms
-            self.regularization_terms[1] = {'importance':importance, 'task_param':task_param}
+            self.regularization_terms[1] = {'importance': importance, 'task_param': task_param}
         else:
             # Use a new slot to store the task-specific information
-            self.regularization_terms[self.task_count] = {'importance':importance, 'task_param':task_param}
+            self.regularization_terms[self.task_count] = {'importance': importance, 'task_param': task_param}
 
     def criterion(self, inputs, targets, tasks, regularization=True, **kwargs):
         loss = super(L2, self).criterion(inputs, targets, tasks, **kwargs)
 
-        if regularization and len(self.regularization_terms)>0:
+        if regularization and len(self.regularization_terms) > 0:
             # Calculate the reg_loss only when the regularization_terms exists
             reg_loss = 0
-            for i,reg_term in self.regularization_terms.items():
+            for i, reg_term in self.regularization_terms.items():
                 task_reg_loss = 0
                 importance = reg_term['importance']
                 task_param = reg_term['task_param']
@@ -93,7 +97,7 @@ class EWC(L2):
         self.log('Computing EWC')
 
         # Initialize the importance matrix
-        if self.online_reg and len(self.regularization_terms)>0:
+        if self.online_reg and len(self.regularization_terms) > 0:
             importance = self.regularization_terms[1]['importance']
         else:
             importance = {}
@@ -104,7 +108,7 @@ class EWC(L2):
         # Otherwise it uses mini-batches for the estimation. This speeds up the process a lot with similar performance.
         if self.n_fisher_sample is not None:
             n_sample = min(self.n_fisher_sample, len(dataloader.dataset))
-            self.log('Sample',self.n_fisher_sample,'for estimating the F matrix.')
+            self.log('Sample', self.n_fisher_sample, 'for estimating the F matrix.')
             rand_ind = random.sample(list(range(len(dataloader.dataset))), n_sample)
             subdata = torch.utils.data.Subset(dataloader.dataset, rand_ind)
             dataloader = torch.utils.data.DataLoader(subdata, shuffle=True, num_workers=2, batch_size=1)
@@ -129,7 +133,8 @@ class EWC(L2):
             # The flag self.valid_out_dim is for handling the case of incremental class learning.
             # if self.valid_out_dim is an integer, it means only the first 'self.valid_out_dim' dimensions are used
             # in calculating the loss.
-            pred = preds[task_name] if not isinstance(self.valid_out_dim, int) else preds[task_name][:,:self.valid_out_dim]
+            pred = preds[task_name] if not isinstance(self.valid_out_dim, int) else preds[task_name][:,
+                                                                                    :self.valid_out_dim]
             ind = pred.max(1)[1].flatten()  # Choose the one with max
 
             # - Alternative ind by multinomial sampling. Its performance is similar. -
@@ -184,7 +189,7 @@ class SI(L2):
     def update_model(self, inputs, targets, tasks):
 
         unreg_gradients = {}
-        
+
         # 1.Save current parameters
         old_params = {}
         for n, p in self.params.items():
@@ -243,10 +248,10 @@ class SI(L2):
 
     def calculate_importance(self, dataloader):
         self.log('Computing SI')
-        assert self.online_reg,'SI needs online_reg=True'
+        assert self.online_reg, 'SI needs online_reg=True'
 
         # Initialize the importance matrix
-        if len(self.regularization_terms)>0: # The case of after the first task
+        if len(self.regularization_terms) > 0:  # The case of after the first task
             importance = self.regularization_terms[1]['importance']
             prev_params = self.regularization_terms[1]['task_param']
         else:  # It is in the first task
@@ -258,7 +263,7 @@ class SI(L2):
         # Calculate or accumulate the Omega (the importance matrix)
         for n, p in importance.items():
             delta_theta = self.params[n].detach() - prev_params[n]
-            p += self.w[n]/(delta_theta**2 + self.damping_factor)
+            p += self.w[n] / (delta_theta ** 2 + self.damping_factor)
             self.w[n].zero_()
 
         return importance
@@ -283,7 +288,7 @@ class MAS(L2):
         self.log('Computing MAS')
 
         # Initialize the importance matrix
-        if self.online_reg and len(self.regularization_terms)>0:
+        if self.online_reg and len(self.regularization_terms) > 0:
             importance = self.regularization_terms[1]['importance']
         else:
             importance = {}
@@ -294,7 +299,7 @@ class MAS(L2):
         self.eval()
 
         # Accumulate the gradients of L2 loss on the outputs
-        for i, (input, target, task) in zip(range(len(dataloader)),dataloader):
+        for i, (input, target, task) in zip(range(len(dataloader)), dataloader):
             if self.gpu:
                 input = input.cuda()
                 target = target.cuda()
@@ -310,7 +315,8 @@ class MAS(L2):
             # The flag self.valid_out_dim is for handling the case of incremental class learning.
             # if self.valid_out_dim is an integer, it means only the first 'self.valid_out_dim' dimensions are used
             # in calculating the  loss.
-            pred = preds[task_name] if not isinstance(self.valid_out_dim, int) else preds[task_name][:,:self.valid_out_dim]
+            pred = preds[task_name] if not isinstance(self.valid_out_dim, int) else preds[task_name][:,
+                                                                                    :self.valid_out_dim]
 
             pred.pow_(2)
             loss = pred.mean()

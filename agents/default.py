@@ -104,8 +104,10 @@ class NormalNN(nn.Module):
             out[t] = out[t].detach()
         return out
 
-    def validation(self, dataloader):
+    def validation(self, dataloader, no_task=False):
         # This function doesn't distinguish tasks.
+        if no_task:
+            print("using no task ")
         batch_timer = Timer()
         acc = AverageMeter()
         batch_timer.tic()
@@ -122,7 +124,10 @@ class NormalNN(nn.Module):
 
             # Summarize the performance of all tasks, or 1 task, depends on dataloader.
             # Calculated by total number of data.
-            acc = accumulate_acc(output, target, task, acc)
+            if no_task:
+                acc = accumulate_acc(output, target, task, acc, guess_task=True)
+            else:
+                acc = accumulate_acc(output, target, task, acc)
 
         self.train(orig_mode)
 
@@ -216,7 +221,7 @@ class NormalNN(nn.Module):
             # Evaluate the performance of current task
             if val_loader != None:
                 self.validation(val_loader)
-            self.scheduler.step(epoch)
+            self.scheduler.step()
 
     def learn_stream(self, data, label):
         assert False, 'No implementation yet'
@@ -255,15 +260,41 @@ class NormalNN(nn.Module):
         return self
 
 
-def accumulate_acc(output, target, task, meter):
-    if 'All' in output.keys():  # Single-headed model
-        meter.update(accuracy(output['All'], target), len(target))
-    else:  # outputs from multi-headed (multi-task) model
+def _guess_task(output):
+    task_names = tuple(output.keys())
+    task = []
+    for group_predictions in zip(*output.values()):
+        max_index = int(torch.argmax(torch.Tensor([x.max() for x in group_predictions])))
+        task.append(task_names[max_index])
+    return task
+
+
+def _str_equal(string_list1, string_list2):
+    total = len(string_list1)
+    right = 0
+    for l1, l2 in zip(string_list1, string_list2):
+        if l1 == l2:
+            right += 1
+    return float(right / total)
+
+
+def accumulate_acc(output, target, task, meter, guess_task=False):
+    def update_meter(output, target, task, meter):
         for t, t_out in output.items():
             inds = [i for i in range(len(task)) if task[i] == t]  # The index of inputs that matched specific task
             if len(inds) > 0:
                 t_out = t_out[inds]
                 t_target = target[inds]
                 meter.update(accuracy(t_out, t_target), len(inds))
+
+    if 'All' in output.keys():  # Single-headed model
+        meter.update(accuracy(output['All'], target), len(target))
+    else:  # outputs from multi-headed (multi-task) model
+        if not guess_task:
+            update_meter(output, target, task, meter)
+        else:  # you must guess the task
+            new_task = _guess_task(output)
+            print(f"guess task acc: {_str_equal(new_task, task):.2f}")
+            update_meter(output, target, new_task, meter)
 
     return meter

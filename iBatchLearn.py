@@ -5,6 +5,7 @@ from collections import OrderedDict, defaultdict
 from random import shuffle
 
 import numpy as np
+from termcolor import colored
 from torch.utils.data import ConcatDataset, DataLoader
 
 import agents
@@ -61,6 +62,8 @@ def run(args):
 
     else:  # Incremental learning
         # Feed data to agent and evaluate agent's performance
+        if not args.incremental_class:
+            acc_table_no_task = defaultdict(lambda: OrderedDict())
         for i in range(len(task_names)):
             train_name = task_names[i]
             print('======================', train_name, '=======================')
@@ -88,8 +91,12 @@ def run(args):
                     val_name]
                 val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
                 acc_table[val_name][train_name] = agent.validation(val_loader)
+                if not args.incremental_class:
+                    acc_table_no_task[val_name][train_name] = agent.validation(val_loader, no_task=True)
 
-    return acc_table, task_names
+    if not args.incremental_class:
+        return (acc_table, acc_table_no_task), task_names
+    return (acc_table,), task_names
 
 
 def get_args(argv):
@@ -154,8 +161,10 @@ if __name__ == '__main__':
         for r in range(args.repeat):
 
             # Run the experiment
-            acc_table, task_names = run(args)
+            (acc_table, *possible_table), task_names = run(args)
             print(dict(acc_table))
+            if len(possible_table) > 0:
+                print(dict(possible_table[0]))
 
             # Calculate average performance across tasks
             # Customize this part for a different performance metric
@@ -169,6 +178,23 @@ if __name__ == '__main__':
                 avg_acc_history[i] = cls_acc_sum / (i + 1)
                 print('Task', train_name, 'average acc:', avg_acc_history[i])
 
+            if len(possible_table) > 0:
+                possible_table = possible_table[0]
+                avg_acc_no_task_history = [0] * len(task_names)
+                for i in range(len(task_names)):
+                    train_name = task_names[i]
+                    cls_acc_sum = 0
+                    for j in range(i + 1):
+                        val_name = task_names[j]
+                        cls_acc_sum += possible_table[val_name][train_name]
+                    avg_acc_no_task_history[i] = cls_acc_sum / (i + 1)
+                    print("=" * 10)
+                    print(colored(
+                        "".join(
+                            ['No task given, Task', str(train_name), 'average acc:', str(avg_acc_no_task_history[i])]),
+                        "green"))
+                    print("=" * 10)
+
             # Gather the final avg accuracy
             avg_final_acc[reg_coef][r] = avg_acc_history[-1]
 
@@ -177,5 +203,6 @@ if __name__ == '__main__':
             print('The regularization coefficient:', args.reg_coef)
             print('The last avg acc of all repeats:', avg_final_acc[reg_coef])
             print('mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
+
     for reg_coef, v in avg_final_acc.items():
         print('reg_coef:', reg_coef, 'mean:', avg_final_acc[reg_coef].mean(), 'std:', avg_final_acc[reg_coef].std())
