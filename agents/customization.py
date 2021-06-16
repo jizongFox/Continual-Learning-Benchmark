@@ -2,7 +2,7 @@ import torch
 
 from modules.criterions import BCEauto
 from .default import NormalNN
-from .exp_replay import Naive_Rehearsal, GEM
+from .exp_replay import Naive_Rehearsal, Naive_Rehearsal_per_task, GEM
 from .regularization import SI, EWC, EWC_online
 
 
@@ -152,6 +152,36 @@ def Naive_Rehearsal_5600(agent_config):
 def Naive_Rehearsal_16000(agent_config):
     agent = Naive_Rehearsal(agent_config)
     agent.memory_size = 16000
+    return agent
+
+
+def Naive_Rehearsal_per_task_5(agent_config):
+    agent = Naive_Rehearsal_per_task(agent_config)
+    agent.memory_size = 5
+    return agent
+
+
+def Naive_Rehearsal_per_task_10(agent_config):
+    agent = Naive_Rehearsal_per_task(agent_config)
+    agent.memory_size = 10
+    return agent
+
+
+def Naive_Rehearsal_per_task_20(agent_config):
+    agent = Naive_Rehearsal_per_task(agent_config)
+    agent.memory_size = 20
+    return agent
+
+
+def Naive_Rehearsal_per_task_50(agent_config):
+    agent = Naive_Rehearsal_per_task(agent_config)
+    agent.memory_size = 50
+    return agent
+
+
+def Naive_Rehearsal_per_task_100(agent_config):
+    agent = Naive_Rehearsal_per_task(agent_config)
+    agent.memory_size = 100
     return agent
 
 

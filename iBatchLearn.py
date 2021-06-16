@@ -1,7 +1,7 @@
 import argparse
 import os
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from random import shuffle
 
 import numpy as np
@@ -9,7 +9,7 @@ from torch.utils.data import ConcatDataset, DataLoader
 
 import agents
 import dataloaders.base
-from dataloaders.datasetGen import SplitGen, PermutedGen
+from dataloaders.datasetGen import SplitGen
 from dataloaders.sampler import InfiniteRandomSampler
 
 
@@ -35,8 +35,8 @@ def run(args):
                     'print_freq': args.print_freq, 'gpuid': args.gpuid,
                     'reg_coef': args.reg_coef}
     agent = agents.__dict__[args.agent_type].__dict__[args.agent_name](agent_config)
-    print(agent.model)
-    print('#parameter of model:', agent.count_parameter())
+    # print(agent.model)
+    # print('#parameter of model:', agent.count_parameter())
 
     # Decide split ordering
     task_names = sorted(list(task_output_space.keys()), key=int)
@@ -45,7 +45,7 @@ def run(args):
         shuffle(task_names)
         print('Shuffled task order:', task_names)
 
-    acc_table = OrderedDict()
+    acc_table = defaultdict(lambda: OrderedDict())
     if args.offline_training:  # Non-incremental learning / offline_training / measure the upper-bound performance
         task_names = ['All']
         train_dataset_all = ConcatDataset(train_dataset_splits.values())
@@ -57,7 +57,6 @@ def run(args):
 
         agent.learn_batch(train_loader, num_batches=200, val_loader=val_loader)
 
-        acc_table['All'] = {}
         acc_table['All']['All'] = agent.validation(val_loader)
 
     else:  # Incremental learning
@@ -65,11 +64,12 @@ def run(args):
         for i in range(len(task_names)):
             train_name = task_names[i]
             print('======================', train_name, '=======================')
-            train_loader = DataLoader(train_dataset_splits[train_name],
+            cur_trainset, cur_valset = train_dataset_splits[train_name], val_dataset_splits[train_name]
+            train_loader = DataLoader(cur_trainset,
                                       batch_size=args.batch_size,
-                                      sampler=InfiniteRandomSampler(train_dataset_splits[train_name], shuffle=True),
+                                      sampler=InfiniteRandomSampler(cur_trainset, shuffle=True),
                                       num_workers=args.workers)
-            val_loader = DataLoader(val_dataset_splits[train_name],
+            val_loader = DataLoader(cur_valset,
                                     batch_size=args.batch_size, shuffle=False,
                                     num_workers=args.workers)
 
@@ -77,10 +77,10 @@ def run(args):
                 agent.add_valid_output_dim(task_output_space[train_name])
 
             # Learn
-            agent.learn_batch(train_loader,num_batches=200, val_loader= val_loader)
+            agent.learn_batch(train_loader, num_batches=200, val_loader=val_loader)
 
             # Evaluate
-            acc_table[train_name] = OrderedDict()
+            # acc_table[train_name] = OrderedDict()
             for j in range(i + 1):
                 val_name = task_names[j]
                 print('validation split name:', val_name)
@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
             # Run the experiment
             acc_table, task_names = run(args)
-            print(acc_table)
+            print(dict(acc_table))
 
             # Calculate average performance across tasks
             # Customize this part for a different performance metric

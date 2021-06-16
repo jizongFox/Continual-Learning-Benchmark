@@ -50,6 +50,58 @@ class Naive_Rehearsal(NormalNN):
         self.task_memory[self.task_count] = Storage(train_loader.dataset, randind)
 
 
+class Naive_Rehearsal_per_task(NormalNN):
+
+    def __init__(self, agent_config):
+        super().__init__(agent_config)
+        self.task_count = 0
+        self.memory_size = 20
+        self.task_memory = {}
+        self.skip_memory_concatenation = False
+
+    def learn_batch(self, train_loader, num_batches, val_loader=None):
+        # 1.Combine training set
+        if self.skip_memory_concatenation:
+            new_train_loader = train_loader
+        else:  # default
+            dataset_list = []
+            for storage in self.task_memory.values():
+                dataset_list.append(storage)
+            previous_data_size = sum([len(x) for x in dataset_list])
+            if previous_data_size > 0:
+                dataset_list *= max(len(train_loader.dataset) // previous_data_size, 1)  # Let old data: new data = 1:1
+            dataset_list.append(train_loader.dataset)
+            dataset = torch.utils.data.ConcatDataset(dataset_list)
+            new_train_loader = torch.utils.data.DataLoader(dataset,
+                                                           batch_size=train_loader.batch_size,
+                                                           sampler=InfiniteRandomSampler(dataset, shuffle=True),
+                                                           num_workers=train_loader.num_workers)
+
+        # 2.Update model as normal
+        super(Naive_Rehearsal_per_task, self).learn_batch(new_train_loader, num_batches, val_loader)
+
+        # 3.Randomly decide the images to stay in the memory
+        self.task_count += 1
+        # (a) Decide the number of samples for being saved
+        num_sample_for_cur_task = self.memory_size
+        # (c) Randomly choose some samples from new task and save them to the memory
+        # randind = torch.randperm(len(train_loader.dataset))[:num_sample_for_cur_task]  # randomly sample some data
+        randind = self._draw_balanced_index_from_dataset(train_loader.dataset,
+                                                         num_samples_per_class=num_sample_for_cur_task)
+        self.task_memory[self.task_count] = Storage(train_loader.dataset, randind)
+        print(f"adding {num_sample_for_cur_task} samples from task {self.task_count} to storage.")
+
+    def _draw_balanced_index_from_dataset(self, dataset, num_samples_per_class: int = 10):
+        target_list = [x[1] for x in dataset]
+        unique_classes = np.unique(target_list)
+        all_index = []
+        for c in unique_classes:
+            cur_index = np.random.permutation([i for i, e in enumerate(target_list) if e == c]) \
+                [:num_samples_per_class].tolist()
+            all_index.extend(cur_index)
+        return all_index
+
+
 class Naive_Rehearsal_SI(Naive_Rehearsal, SI):
 
     def __init__(self, agent_config):
@@ -66,6 +118,13 @@ class Naive_Rehearsal_EWC(Naive_Rehearsal, EWC):
 
     def __init__(self, agent_config):
         super(Naive_Rehearsal_EWC, self).__init__(agent_config)
+        self.online_reg = True  # Online EWC
+
+
+class Naive_Rehearsal_EWC_per_task(Naive_Rehearsal_per_task, EWC):
+
+    def __init__(self, agent_config):
+        super(Naive_Rehearsal_EWC_per_task, self).__init__(agent_config)
         self.online_reg = True  # Online EWC
 
 
