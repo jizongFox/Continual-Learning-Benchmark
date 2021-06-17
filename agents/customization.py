@@ -184,10 +184,12 @@ def Naive_Rehearsal_per_task_100(agent_config):
     agent.memory_size = 100
     return agent
 
+
 def Naive_Rehearsal_per_task_1000(agent_config):
     agent = Naive_Rehearsal_per_task(agent_config)
     agent.memory_size = 1000
     return agent
+
 
 def GEM_100(agent_config):
     agent = GEM(agent_config)

@@ -128,11 +128,36 @@ class Naive_Rehearsal_EWC(Naive_Rehearsal, EWC):
         self.online_reg = True  # Online EWC
 
 
-class Naive_Rehearsal_EWC_per_task(Naive_Rehearsal_per_task, EWC):
+class Naive_Rehearsal_EWC_per_task_5(Naive_Rehearsal_per_task, EWC):
 
     def __init__(self, agent_config):
-        super(Naive_Rehearsal_EWC_per_task, self).__init__(agent_config)
-        self.online_reg = True  # Online EWC
+        super(Naive_Rehearsal_EWC_per_task_5, self).__init__(agent_config)
+        self.online_reg = False  # Online EWC
+        self.memory_size = 5
+
+
+class Naive_Rehearsal_EWC_per_task_10(Naive_Rehearsal_per_task, EWC):
+
+    def __init__(self, agent_config):
+        super(Naive_Rehearsal_EWC_per_task_10, self).__init__(agent_config)
+        self.online_reg = False  # Online EWC
+        self.memory_size = 10
+
+
+class Naive_Rehearsal_EWC_per_task_50(Naive_Rehearsal_per_task, EWC):
+
+    def __init__(self, agent_config):
+        super(Naive_Rehearsal_EWC_per_task_50, self).__init__(agent_config)
+        self.online_reg = False  # Online EWC
+        self.memory_size = 50
+
+
+class Naive_Rehearsal_EWC_per_task_100(Naive_Rehearsal_per_task, EWC):
+
+    def __init__(self, agent_config):
+        super(Naive_Rehearsal_EWC_per_task_100, self).__init__(agent_config)
+        self.online_reg = False  # Online EWC
+        self.memory_size = 100
 
 
 class Naive_Rehearsal_MAS(Naive_Rehearsal, MAS):
